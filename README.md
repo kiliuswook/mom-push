@@ -2,6 +2,10 @@
 
 타임루프 암살자 색출 병맛 물리 FPS — Godot 4.6 프로토타입.
 
+### ▶ [브라우저에서 바로 플레이](https://kiliuswook.github.io/mom-push/)
+
+설치 없이 돌아간다. 첫 로딩 약 10MB. 화면을 한 번 클릭하면 마우스 시점이 잡힌다.
+
 병원에서 깨어난 휠체어 킬러가 마을에 숨은 암살자들을 찾아내고, 죽을 때마다 정체를
 기억해가며, 모든 킬러를 제거한 뒤 탈출 지점까지 도달하는 게임.
 아무나 쏘면 경찰 → SWAT → 헬기 → 전투기가 몰려와 반드시 망한다.
@@ -39,6 +43,20 @@ godot --path . scenes/main.tscn
 ```
 godot --headless --path . tests/smoke_check.tscn
 ```
+
+62개 체크. 실제 물리를 돌려 이동 속도와 구동 상태 전이까지 확인한다.
+
+## 웹 빌드 / 배포
+
+```
+python tools/subset_font.py                                        # 한글 폰트 서브셋 (10MB -> 0.25MB)
+godot --headless --path . --export-release "Web" build/web/index.html
+python tools/serve.py                                              # http://127.0.0.1:8060 에서 확인
+```
+
+`variant/thread_support=false` 로 빌드하므로 SharedArrayBuffer 가 필요 없고,
+COOP/COEP 헤더 없는 정적 호스팅(GitHub Pages 등)에 그대로 올라간다.
+배포는 `build/web` 의 내용을 `gh-pages` 브랜치 루트에 올리면 된다 (`.nojekyll` 포함).
 
 자세한 내용은 `CLAUDE.md` 와 `docs/GDD.md`.
 
