@@ -1,0 +1,10 @@
+# Godot 빌드 캐시
+.godot/
+*.tmp
+
+# 웹 익스포트 산출물. gh-pages 브랜치로 따로 배포한다.
+build/
+
+# 서브셋 원본 폰트 10MB. 없으면 tools/subset_font.py 가 자동으로 내려받는다.
+assets/fonts/NotoSansKR-full.ttf
+assets/fonts/NotoSansKR-full.ttf.import
