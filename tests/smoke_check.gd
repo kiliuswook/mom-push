@@ -103,6 +103,11 @@ func _run() -> void:
 		push_speed > Balance.SELF_MAX_SPEED + 0.5
 	)
 	_check("밀리는 중에도 사격 가능", player.current_spread() >= 0.0)
+	_check(
+		"속도가 시야각을 넓힌다 (%.1f > %.1f)" % [player.camera.fov, Balance.FOV_BASE],
+		player.camera.fov > Balance.FOV_BASE + 3.0
+	)
+	_check("제자리 회전이 고속 회전보다 빠름", Balance.TURN_SPEED_PIVOT > Balance.TURN_SPEED_ROLLING)
 	Input.action_release("call_mom")
 	Input.action_release("move_forward")
 	await _wait(5)

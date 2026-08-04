@@ -110,9 +110,9 @@ func _process_follow(delta: float) -> void:
 
 	var wants_grip := Input.is_action_pressed("call_mom") or (manual and Input.is_action_pressed("mom_push"))
 	if wants_grip and global_position.distance_to(target) <= Balance.MOM_GRAB_RANGE:
+		# 문장 대신 몸으로 알린다 — 첫 밀침, 넓어지는 시야각, 바뀌는 상태 기호.
 		state = State.GRIP
 		EventBus.mom_grip_changed.emit(true)
-		EventBus.notify("엄마가 손잡이를 잡았다 — 밀기 시작", Color(1.0, 0.82, 0.88))
 
 
 func _process_grip(_delta: float) -> void:

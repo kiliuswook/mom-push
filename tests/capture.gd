@@ -44,7 +44,47 @@ func _ready() -> void:
 
 	# 정체 노출 순간 — 이 게임에서 가장 중요한 연출이라 따로 찍는다.
 	await _capture_reveal(player)
+	# 자력 추진 vs 엄마 밀기 — 시야각과 바퀴 회전 차이를 눈으로 비교하기 위해.
+	var mom: Mom = main.get("mom")
+	await _capture_drive(player, mom, false, "10_self")
+	await _capture_drive(player, mom, true, "11_pushed")
 	get_tree().quit(0)
+
+
+func _capture_drive(player: WheelchairPlayer, mom: Mom, pushed: bool, shot_name: String) -> void:
+	for action: String in ["move_forward", "call_mom"]:
+		Input.action_release(action)
+	# 앞선 리빌 촬영 중에 죽었다면 트리가 멈춰 있다. 루프를 다시 열고 진행한다.
+	get_tree().paused = false
+	LoopManager.begin_loop()
+	for node: Node in get_tree().get_nodes_in_group("npc"):
+		node.queue_free()
+	var spot := Vector3(0.0, 0.4, 20.0)
+	player.reset_for_loop(spot)
+	# 엄마가 멀리 있으면 손잡이를 못 잡는다. 바로 뒤에 세워둔다.
+	mom.reset_for_loop(spot + player.back_direction() * 1.0)
+	player.input_enabled = true
+	for i: int in 20:
+		await get_tree().physics_frame
+	if pushed:
+		Input.action_press("call_mom")
+		for i: int in 40:
+			await get_tree().physics_frame
+		if not mom.is_gripping():
+			print("  경고: %s 촬영에서 엄마가 손잡이를 잡지 못했다" % shot_name)
+	Input.action_press("move_forward")
+	for i: int in 90:
+		await get_tree().physics_frame
+	player.look_pitch = -0.35  # 바퀴가 보이도록 아래를 본다
+	for i: int in 8:
+		await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var image := get_viewport().get_texture().get_image()
+	image.save_png("%s/%s.png" % [_out_dir, shot_name])
+	var speed := Vector2(player.velocity.x, player.velocity.z).length()
+	print("saved %s (fov=%.1f speed=%.2f)" % [shot_name, player.camera.fov, speed])
+	Input.action_release("move_forward")
+	Input.action_release("call_mom")
 
 
 func _capture_reveal(player: WheelchairPlayer) -> void:

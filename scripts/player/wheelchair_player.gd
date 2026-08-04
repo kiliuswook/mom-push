@@ -40,6 +40,10 @@ var _input_drive: float = 0.0
 var _input_turn: float = 0.0
 var _muzzle_timer: float = 0.0
 var _hit_flash: float = 0.0
+var _fov_punch: float = 0.0
+var _shake_phase: float = 0.0
+var _stride: float = 0.0
+var _wheels: Array[Node3D] = []
 
 var pivot: Node3D
 var camera: Camera3D
@@ -83,8 +87,19 @@ func _build_nodes() -> void:
 	# 정면은 -Z (Godot 규약). 등받이와 손잡이는 +Z 쪽, 다리와 앞바퀴는 -Z 쪽.
 	Build.box(chair_body, Vector3(0.62, 0.10, 0.60), Vector3(0.0, 0.52, 0.0), seat, false)
 	Build.box(chair_body, Vector3(0.62, 0.62, 0.10), Vector3(0.0, 0.82, 0.28), seat, false)
-	Build.cylinder(chair_body, 0.34, 0.06, Vector3(-0.40, 0.34, 0.0), frame, false, Vector3(0.0, 0.0, PI * 0.5))
-	Build.cylinder(chair_body, 0.34, 0.06, Vector3(0.40, 0.34, 0.0), frame, false, Vector3(0.0, 0.0, PI * 0.5))
+	for side: int in [-1, 1]:
+		var wheel := Build.cylinder(
+			chair_body,
+			Balance.WHEEL_RADIUS,
+			0.06,
+			Vector3(0.40 * float(side), Balance.WHEEL_RADIUS, 0.0),
+			frame,
+			false,
+			Vector3(0.0, 0.0, PI * 0.5)
+		)
+		# 살 하나를 박아둬야 회전이 눈에 보인다.
+		Build.box(wheel, Vector3(0.05, 0.10, 0.60), Vector3.ZERO, frame.lightened(0.35), false)
+		_wheels.append(wheel)
 	Build.cylinder(chair_body, 0.12, 0.05, Vector3(-0.26, 0.12, -0.42), frame, false, Vector3(0.0, 0.0, PI * 0.5))
 	Build.cylinder(chair_body, 0.12, 0.05, Vector3(0.26, 0.12, -0.42), frame, false, Vector3(0.0, 0.0, PI * 0.5))
 	# 무릎 담요와 다리 — 1인칭에서 아래를 보면 보인다.
@@ -173,9 +188,11 @@ func _read_input() -> void:
 	if not input_enabled:
 		_input_drive = 0.0
 		_input_turn = 0.0
+		aiming = false
 		return
 	_input_drive = Input.get_axis("move_back", "move_forward")
 	_input_turn = Input.get_axis("move_right", "move_left")
+	aiming = Input.is_action_pressed("aim")
 
 
 func _mom_pushing() -> bool:
@@ -206,6 +223,11 @@ func _update_drive_state(_delta: float) -> void:
 		EventBus.drive_changed.emit(drive)
 		if drive != Enums.Drive.STOPPED:
 			aim_settle = 0.0
+		# 엄마가 손잡이를 잡는 순간의 첫 밀침. 이 한 번의 덜컥임이 "밀리기 시작했다"를 알린다.
+		if drive == Enums.Drive.PUSHED:
+			velocity += forward_direction() * Balance.PUSH_LURCH
+			_fov_punch = 9.0
+			_stride = 0.0
 
 
 # --- 이동 -------------------------------------------------------------------
@@ -223,20 +245,30 @@ func _apply_motion(delta: float) -> void:
 	if drive == Enums.Drive.PUSHED and mom.has_method("get_push_input"):
 		push_input = mom.get_push_input()
 
-	var turn_rate := Balance.TURN_SPEED_SELF
-	var forward_input := _input_drive
-	var turn_input := _input_turn
-	if drive == Enums.Drive.PUSHED:
-		turn_rate = Balance.TURN_SPEED_PUSH
-		forward_input = push_input.y
-		turn_input = push_input.x
+	var pushed := drive == Enums.Drive.PUSHED
+	var forward_input := push_input.y if pushed else _input_drive
+	var turn_input := push_input.x if pushed else _input_turn
 
-	# 조향: 직접 굴릴 때는 A/D 로만, 밀릴 때는 엄마가 시야 방향으로 끌고 간다.
+	# 회전 속도는 현재 속도에 반비례한다. 멈춰 있으면 홱 돌고, 굴러가면 크게 돈다.
+	var speed_now := Vector2(velocity.x, velocity.z).length()
+	var top_speed := Balance.PUSH_MAX_SPEED if pushed else Balance.SELF_MAX_SPEED
+	var speed_ratio := clampf(speed_now / top_speed, 0.0, 1.0)
+	var turn_rate := lerpf(
+		Balance.TURN_SPEED_PUSH_PIVOT if pushed else Balance.TURN_SPEED_PIVOT,
+		Balance.TURN_SPEED_PUSH_ROLLING if pushed else Balance.TURN_SPEED_ROLLING,
+		speed_ratio
+	)
+
 	if not on_rail:
-		chair_yaw += turn_input * turn_rate * delta
-		if absf(forward_input) > 0.05:
-			var steer_assist := angle_difference(chair_yaw, look_yaw)
-			chair_yaw += clampf(steer_assist, -turn_rate * delta, turn_rate * delta)
+		# A/D 는 의자와 시야를 함께 돌린다. 따로 돌면 시야가 뒤에 남아 방향을 잃는다.
+		var manual_turn := turn_input * turn_rate * delta
+		chair_yaw += manual_turn
+		look_yaw += manual_turn
+		# 마우스가 곧 조향이다. 멈춰 있을 때도 의자가 따라와야 답답하지 않다.
+		# 단 조준 중에는 따라오지 않는다 — 의자를 고정한 채 주변을 훑기 위해서.
+		if not aiming:
+			var steer := angle_difference(chair_yaw, look_yaw)
+			chair_yaw += clampf(steer, -turn_rate * delta, turn_rate * delta)
 
 	# Godot 규약상 노드의 정면은 -Z 다. 카메라와 축을 맞춘다.
 	var forward := Vector3(-sin(chair_yaw), 0.0, -cos(chair_yaw))
@@ -248,19 +280,22 @@ func _apply_motion(delta: float) -> void:
 		planar = planar.lerp(along, 1.0 - exp(-6.0 * delta))
 		chair_yaw = atan2(-rail_dir.x, -rail_dir.z)
 	else:
-		var accel := Balance.SELF_ACCEL
-		var max_speed := Balance.SELF_MAX_SPEED
-		if drive == Enums.Drive.PUSHED:
-			accel = Balance.PUSH_ACCEL
-			max_speed = Balance.PUSH_MAX_SPEED
+		var accel := Balance.PUSH_ACCEL if pushed else Balance.SELF_ACCEL
+		var max_speed := top_speed
 		var control := 1.0 if is_on_floor() else Balance.AIR_CONTROL
 		if absf(forward_input) > 0.05:
+			# 엄마가 밀 때는 한 걸음마다 속도가 출렁인다. 이 리듬이 자력 추진과 가장 다른 점.
+			if pushed:
+				_stride += delta * Balance.PUSH_STRIDE_HZ * TAU
+				max_speed *= 1.0 + Balance.PUSH_STRIDE_SURGE * sin(_stride)
 			planar += forward * forward_input * accel * control * delta
 			if planar.length() > max_speed:
 				planar = planar.normalized() * max_speed
 		else:
 			# 관성 롤. 굴러가는 동안에도 사격은 가능하다.
-			planar = planar.move_toward(Vector3.ZERO, Balance.ROLL_FRICTION * delta)
+			# 감속이 속도에 비례해야 저속에서 딱 서고 고속에서만 시원하게 활주한다.
+			var decel := Balance.ROLL_FRICTION_BASE + planar.length() * Balance.ROLL_DRAG
+			planar = planar.move_toward(Vector3.ZERO, decel * delta)
 
 	if _braking():
 		planar = planar.move_toward(Vector3.ZERO, Balance.BRAKE_DECEL * delta)
@@ -327,8 +362,27 @@ func _update_view(delta: float) -> void:
 	_recoil_pitch = move_toward(_recoil_pitch, 0.0, 9.0 * delta)
 	pivot.rotation.y = angle_difference(chair_yaw, look_yaw)
 	pivot.rotation.x = look_pitch + deg_to_rad(_recoil_pitch)
-	var target_fov := 52.0 if (aiming and drive == Enums.Drive.STOPPED) else 74.0
+
+	var speed := Vector2(velocity.x, velocity.z).length()
+	var speed_ratio := clampf(speed / Balance.PUSH_MAX_SPEED, 0.0, 1.0)
+	_fov_punch = move_toward(_fov_punch, 0.0, 22.0 * delta)
+
+	# 속도가 시야각을 넓힌다. 수치보다 이쪽이 먼저 체감된다.
+	var target_fov := Balance.FOV_BASE + Balance.FOV_SPEED_GAIN * speed_ratio + _fov_punch
+	if aiming and drive == Enums.Drive.STOPPED:
+		target_fov = Balance.FOV_AIM
 	camera.fov = lerpf(camera.fov, target_fov, 1.0 - exp(-9.0 * delta))
+
+	# 노면 진동. 빠를수록 커진다.
+	_shake_phase += delta * (4.0 + speed * 2.4)
+	var shake := Balance.SHAKE_AMOUNT * speed_ratio
+	camera.position = Vector3(sin(_shake_phase * 1.7) * shake, sin(_shake_phase * 2.6) * shake * 1.5, 0.0)
+
+	# 바퀴가 실제로 굴러야 속도가 눈에 보인다.
+	var spin := speed / Balance.WHEEL_RADIUS * delta
+	var facing := forward_direction().dot(Vector3(velocity.x, 0.0, velocity.z))
+	for wheel: Node3D in _wheels:
+		wheel.rotate_object_local(Vector3.UP, spin * signf(facing))
 	if _muzzle_timer > 0.0:
 		_muzzle_timer -= delta
 		muzzle_flash.visible = true
@@ -367,7 +421,6 @@ func _update_weapon(delta: float) -> void:
 	if not input_enabled:
 		return
 
-	aiming = Input.is_action_pressed("aim")
 	if drive == Enums.Drive.STOPPED:
 		aim_settle = minf(aim_settle + delta, Balance.AIM_SETTLE_TIME)
 	else:
@@ -503,6 +556,8 @@ func reset_for_loop(spawn: Vector3) -> void:
 	reload_timer = 0.0
 	in_mag = Balance.MAG_SIZE
 	_recoil_pitch = 0.0
+	_fov_punch = 0.0
+	_stride = 0.0
 	_emit_ammo()
 	EventBus.drive_changed.emit(drive)
 

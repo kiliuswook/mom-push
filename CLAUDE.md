@@ -70,12 +70,20 @@ res://
 ## 검증
 
 ```bash
-godot --headless --path . tests/smoke_check.tscn   # 55 체크. 종료 코드로 성공/실패.
-godot --path . tests/capture.tscn -- <출력폴더>     # 구역별 스크린샷 8장.
+godot --headless --path . tests/smoke_check.tscn   # 69 체크. 종료 코드로 성공/실패.
+godot --headless --path . tests/playtest.tscn      # 조작감 계측 (회전/관성/속도감)
+godot --path . tests/capture.tscn -- <출력폴더>     # 스크린샷 11장 (구역 + 리빌 + 밀기 비교)
 ```
 
 `smoke_check` 는 실제 물리를 돌려서 이동 속도와 구동 상태 전이까지 확인한다.
 기능을 고쳤으면 여기에 체크를 추가한다.
+
+`playtest` 는 "느낌"을 숫자로 바꾸는 도구다. 이동 관련 수치를 건드렸으면 **반드시 전후를 비교**한다.
+기준선은 `docs/GDD.md` 8절 표에 있다. 특히 **F(시야 전환 후 추종)가 0.5초를 넘으면 답답하다는
+피드백이 돌아온다.**
+
+두 하네스 모두 NPC 를 지우고 돌린다 — 계측 중에 킬러에게 죽으면 루프가 끝나면서
+트리가 멈춰 모든 수치가 0 이 된다. 새 하네스를 쓸 때도 같은 함정을 조심할 것.
 
 ## 네이밍 / 스타일
 
