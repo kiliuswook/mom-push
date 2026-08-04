@@ -181,6 +181,32 @@ static func label(
 	return l
 
 
+## 월드에 떠 있는 키캡. 문장 대신 "이 키를 눌러라"만 전한다.
+## 위아래로 살짝 떠다녀서 배경과 구분된다.
+static func key_prompt(parent: Node, key_label: String, pos: Vector3) -> Node3D:
+	var root := Node3D.new()
+	parent.add_child(root)
+	root.position = pos
+	var cap := MeshInstance3D.new()
+	var mesh := BoxMesh.new()
+	mesh.size = Vector3(0.52, 0.52, 0.10)
+	cap.mesh = mesh
+	cap.material_override = emissive(Color(0.14, 0.16, 0.20), 0.6)
+	root.add_child(cap)
+	var frame := MeshInstance3D.new()
+	var frame_mesh := BoxMesh.new()
+	frame_mesh.size = Vector3(0.62, 0.62, 0.06)
+	frame.mesh = frame_mesh
+	frame.material_override = emissive(Color(1.0, 0.86, 0.45), 2.2)
+	frame.position = Vector3(0.0, 0.0, -0.03)
+	root.add_child(frame)
+	var glyph := label(root, key_label, Vector3(0.0, 0.0, 0.09), 0.42, Color(1.0, 0.95, 0.75))
+	glyph.billboard = BaseMaterial3D.BILLBOARD_DISABLED
+	# 라벨과 캡이 항상 플레이어를 향하도록 루트만 빌보드처럼 돌린다.
+	root.set_script(load("res://scripts/world/billboard_bob.gd"))
+	return root
+
+
 ## 원기둥형 트리거 영역.
 static func trigger(parent: Node, radius: float, height: float, pos: Vector3, node_name: String) -> Area3D:
 	var area := Area3D.new()

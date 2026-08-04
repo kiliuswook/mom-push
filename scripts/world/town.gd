@@ -49,6 +49,7 @@ func _ready() -> void:
 	_build_escape()
 	_build_perimeter()
 	_build_zone_triggers()
+	add_child(GuidePath.create())
 	EventBus.wanted_changed.connect(_on_wanted_changed)
 
 
@@ -137,8 +138,10 @@ func _build_hospital() -> void:
 		add_child(lamp)
 		Build.box(self, Vector3(3.0, 0.1, 0.5), lamp.position + Vector3(0.0, 0.4, 0.0), Color(0.95, 0.97, 1.0), false)
 
-	Build.label(self, "병원 — 루프 리셋 지점", Vector3(0.0, 3.2, -7.0), 0.55, Color(0.85, 0.92, 1.0))
-	Build.label(self, "출구 →", Vector3(0.0, 2.6, 14.5), 0.45, Color(1.0, 0.92, 0.6))
+	# 연습 과녁. 나가기 전에 "멈춰야 쏜다"를 몸으로 익히는 자리.
+	for i: int in 3:
+		var target := TargetBoard.create(Vector3(-8.5 + float(i) * 2.0, 0.0, 13.0))
+		add_child(target)
 
 	# 문턱 (도로 턱). 밀리는 중이면 자동으로 넘는다.
 	Build.box(self, Vector3(5.0, 0.22, 0.6), Vector3(0.0, 0.11, 16.0), C_CONCRETE)
@@ -158,7 +161,6 @@ func _build_road() -> void:
 			C_LINE,
 			false
 		)
-	Build.label(self, "횡단보도 — 조심", Vector3(0.0, 2.2, 32.0), 0.4, Color(1.0, 0.9, 0.55))
 
 	# 연석. 낮은 턱이라 밀리면 넘고, 직접 굴리면 걸린다.
 	Build.box(self, Vector3(6.0, 0.26, 34.0), Vector3(-12.0, 0.13, 32.0), C_PAVE)
@@ -228,9 +230,8 @@ func _build_houses() -> void:
 	Build.box(self, Vector3(0.3, 0.3, span), mid, C_METAL, true, Vector3(-pitch, yaw, 0.0))
 	var rail := Rail.create(Vector3(2.4, 2.0, span), mid + Vector3.UP * 0.8, Vector3(-pitch, yaw, 0.0), dir)
 	add_child(rail)
-	Build.label(self, "난간 — 밀린 채로 올라타면 미끄러진다", rail_from + Vector3.UP, 0.3, Color(0.8, 0.95, 1.0))
 
-	Build.label(self, "주택가 — 위를 봐라", Vector3(0.0, 4.2, 86.0), 0.6, Color(1.0, 0.9, 0.8))
+	Build.label(self, "주택가", Vector3(0.0, 4.2, 86.0), 0.6, Color(1.0, 0.9, 0.8))
 
 
 func _railing(center: Vector3, length: float, yaw: float) -> void:
@@ -281,13 +282,6 @@ func _build_escape() -> void:
 	# 탈출용 승합차
 	Build.box(self, Vector3(2.4, 2.0, 5.6), ESCAPE_POSITION + Vector3(6.5, 1.2, 2.0), Color(0.30, 0.34, 0.42))
 	Build.label(self, "탈출 지점", ESCAPE_POSITION + Vector3(0.0, 4.0, 0.0), 0.8, Color(0.6, 1.0, 0.7))
-	Build.label(
-		self,
-		"모든 킬러를 제거하지 않으면 여기서 포위된다",
-		ESCAPE_POSITION + Vector3(0.0, 3.0, 0.0),
-		0.32,
-		Color(1.0, 0.7, 0.6)
-	)
 	escape_zone = EscapeZone.create(ESCAPE_POSITION + Vector3(0.0, 1.5, 0.0), 5.0)
 	add_child(escape_zone)
 

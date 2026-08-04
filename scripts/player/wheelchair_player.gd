@@ -400,16 +400,19 @@ func _try_fire() -> void:
 	_muzzle_timer = 0.05
 	_recoil_pitch = Balance.RECOIL_PITCH
 	_emit_ammo()
-	EventBus.weapon_fired.emit(spread)
 
 	# 정지 상태에서 쏘면 반동으로 뒤로 조금 밀린다 (병맛 물리).
 	if drive == Enums.Drive.STOPPED:
 		velocity += back_direction() * Balance.RECOIL_PUSHBACK
 
-	_cast_bullet(spread)
+	# 연습 과녁을 맞힌 총성은 주민을 놀라게 하지 않는다.
+	# 튜토리얼이 수배 단계를 올리면 배우는 행위 자체가 벌이 된다.
+	var alarming := _cast_bullet(spread)
+	EventBus.weapon_fired.emit(spread, alarming)
 
 
-func _cast_bullet(spread_deg: float) -> void:
+## 총알을 쏜다. 주변에 알람이 되어야 하면 true.
+func _cast_bullet(spread_deg: float) -> bool:
 	var origin := camera.global_position
 	var dir := -camera.global_transform.basis.z
 	if spread_deg > 0.0:
@@ -424,15 +427,19 @@ func _cast_bullet(spread_deg: float) -> void:
 	var hit := get_world_3d().direct_space_state.intersect_ray(query)
 	if hit.is_empty():
 		LoopManager.report_threat("빗나간 총성")
-		return
+		return true
 	var collider: Object = hit["collider"]
 	var point: Vector3 = hit["position"]
+	if collider is TargetBoard:
+		(collider as TargetBoard).take_bullet(Balance.BULLET_DAMAGE, point)
+		return false
 	if collider != null and collider.has_method("take_bullet"):
 		var body := collider as Node3D
 		var head: bool = body != null and point.y - body.global_position.y > 1.45
 		collider.take_bullet(Balance.BULLET_DAMAGE * (Balance.HEADSHOT_MULT if head else 1.0), point)
-	else:
-		LoopManager.report_threat("빗나간 총성")
+		return true
+	LoopManager.report_threat("빗나간 총성")
+	return true
 
 
 func _emit_ammo() -> void:

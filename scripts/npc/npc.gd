@@ -304,11 +304,6 @@ func _engage(def: Dictionary) -> void:
 	state = State.ENGAGE
 	_reveal()
 	EventBus.npc_alerted.emit(slot_id)
-	EventBus.notify(
-		"%s 움직인다 — %s"
-		% [Josa.subject(NpcCatalog.disguise_name(disguise)), String(def.get("tell", ""))],
-		Color(1.0, 0.55, 0.35)
-	)
 	EventBus.tell_observed.emit(slot_id, String(def.get("tell", "")))
 	# 정체를 드러낸 순간 지식이 된다. 죽지 않고도 배울 수 있는 유일한 경로.
 	GameState.learn(slot_id, "정체를 드러내는 순간을 목격했다")
@@ -391,7 +386,9 @@ func _throw_bomb(damage: float) -> void:
 	bomb.launch(_eye(), player.global_position + Vector3.UP * 0.5, damage, self)
 
 
-## 킬러가 정체를 드러낸다 — 무기가 보이고 걸음이 바뀐다.
+## 킬러가 정체를 드러낸다 — 이 게임에서 가장 중요한 0.5초.
+## 여기서 무슨 일이 일어났는지 못 읽으면 게임 전체가 불공정해 보인다.
+## 그래서 글자가 아니라 몸으로 알린다: 붉은 느낌표 + 발밑 파문 + 잠깐의 슬로우모션.
 func _reveal() -> void:
 	if revealed:
 		return
@@ -399,8 +396,28 @@ func _reveal() -> void:
 	if _weapon_visual != null:
 		_weapon_visual.visible = true
 	if _label != null:
-		_label.text = "%s?!" % NpcCatalog.disguise_name(disguise)
-		_label.modulate = Color(1.0, 0.4, 0.35)
+		# 이름표는 "누구였는지" 기억용으로 남기고, 경보는 느낌표가 맡는다.
+		_label.modulate = Color(1.0, 0.35, 0.30)
+	_spawn_alert_mark()
+	Fx.ground_ring(self, global_position, Color(1.0, 0.30, 0.25))
+	Fx.reveal_slowmo(self)
+
+
+## 머리 위 붉은 느낌표. 박스 두 개로 만든다.
+func _spawn_alert_mark() -> void:
+	var mark := Node3D.new()
+	add_child(mark)
+	mark.position = Vector3(0.0, 2.45 if not is_vehicle else 2.25, 0.0)
+	mark.set_script(load("res://scripts/world/billboard_bob.gd"))
+	var mat := Build.emissive(Color(1.0, 0.25, 0.20), 4.0)
+	for part: Array in [[Vector3(0.17, 0.50, 0.06), Vector3(0.0, 0.42, 0.0)], [Vector3(0.17, 0.17, 0.06), Vector3(0.0, 0.0, 0.0)]]:
+		var mi := MeshInstance3D.new()
+		var mesh := BoxMesh.new()
+		mesh.size = part[0]
+		mi.mesh = mesh
+		mi.material_override = mat
+		mi.position = part[1]
+		mark.add_child(mi)
 
 
 # --- 텔 (판별 단서) -----------------------------------------------------------
@@ -569,7 +586,8 @@ func _refresh_marker() -> void:
 	if _marker == null:
 		return
 	var known := kind == Enums.NpcKind.KILLER and slot_id != "" and GameState.is_known(slot_id)
-	_marker.visible = known and state != State.DEAD
+	# 이미 드러난 킬러는 느낌표가 표시를 맡으므로 마름모를 겹치지 않는다.
+	_marker.visible = known and state != State.DEAD and not revealed
 	if known and _label != null and not revealed:
 		_label.text = "%s [%s]" % [NpcCatalog.disguise_name(disguise), NpcCatalog.killer_name(killer_type)]
 		_label.modulate = Color(1.0, 0.55, 0.5)

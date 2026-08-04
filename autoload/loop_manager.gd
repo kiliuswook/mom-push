@@ -57,6 +57,8 @@ func begin_loop() -> void:
 	ending = false
 	end_info = {}
 	loop_time = 0.0
+	# 리빌 슬로우모션이 걸린 채로 루프가 끝났을 수 있다.
+	Engine.time_scale = 1.0
 	_alert_timer = 0.0
 	_jet_timer = 0.0
 	GameState.reset_loop_state()
@@ -73,6 +75,7 @@ func end_loop(reason: Enums.LoopEnd, info: Dictionary = {}) -> void:
 	if ending or not GameState.loop_active:
 		return
 	GameState.loop_active = false
+	Engine.time_scale = 1.0
 	ending = true
 	end_reason = reason
 	end_info = info

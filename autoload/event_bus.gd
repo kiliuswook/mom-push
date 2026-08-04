@@ -9,7 +9,7 @@ signal player_died(cause: String, killer_slot_id: String)
 signal drive_changed(drive: Enums.Drive)
 signal ammo_changed(in_mag: int, mag_size: int, reloading: bool)
 signal aim_changed(aiming: bool, settle: float, can_fire: bool)
-signal weapon_fired(spread_deg: float)
+signal weapon_fired(spread_deg: float, alarming: bool)
 
 # --- 엄마 ------------------------------------------------------------------
 signal mom_grip_changed(gripping: bool)

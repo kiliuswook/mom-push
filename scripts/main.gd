@@ -49,7 +49,6 @@ func _ready() -> void:
 
 	town.spawn_npcs()
 	LoopManager.begin_loop()
-	EventBus.notify("병원에서 깨어났다. 탈출 지점까지 가야 한다.", Color(0.85, 0.95, 1.0))
 
 
 func _process(_delta: float) -> void:
@@ -77,9 +76,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		LoopManager.end_loop(Enums.LoopEnd.GAVE_UP, {})
 
 
-func _on_weapon_fired(_spread: float) -> void:
+func _on_weapon_fired(_spread: float, alarming: bool) -> void:
 	# 총성은 주변 민간인에게 들린다 (문서 7절).
-	town.broadcast_gunshot(player.global_position)
+	# 연습 과녁을 맞힌 총성은 예외 — 배우는 행위가 벌이 되면 안 된다.
+	if alarming:
+		town.broadcast_gunshot(player.global_position)
 
 
 func _on_loop_ending(reason: Enums.LoopEnd, _info: Dictionary) -> void:

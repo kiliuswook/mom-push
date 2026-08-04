@@ -19,7 +19,8 @@ static func create(bottom_point: Vector3, top_point: Vector3) -> StairLift:
 
 func _ready() -> void:
 	add_to_group("stair_lift")
-	Build.label(self, "계단 — [P] 엄마가 들어올린다", bottom + Vector3.UP * 1.6, 0.26, Color(1.0, 0.9, 0.6))
+	# 글자 대신 키캡과 계단 모양으로 알린다.
+	Build.key_prompt(self, "P", bottom + Vector3(0.0, 1.7, 0.6))
 
 
 func bottom_point() -> Vector3:

@@ -41,4 +41,37 @@ func _ready() -> void:
 		var path := "%s/%s.png" % [_out_dir, String(shot["name"])]
 		image.save_png(path)
 		print("saved %s" % path)
+
+	# 정체 노출 순간 — 이 게임에서 가장 중요한 연출이라 따로 찍는다.
+	await _capture_reveal(player)
 	get_tree().quit(0)
+
+
+func _capture_reveal(player: WheelchairPlayer) -> void:
+	var target: Npc = null
+	for node: Node in get_tree().get_nodes_in_group("npc"):
+		var npc := node as Npc
+		if npc != null and npc.kind == Enums.NpcKind.KILLER and not npc.elevated and not npc.is_vehicle:
+			target = npc
+			break
+	if target == null:
+		print("킬러를 찾지 못해 리빌 캡처를 건너뛴다")
+		return
+	# 킬러 정면 7m 지점에서 마주 본다.
+	var to_player := (target.global_position - Vector3(0.0, 0.0, 7.0))
+	player.global_position = Vector3(to_player.x, 0.3, to_player.z)
+	var look := target.global_position - player.global_position
+	player.chair_yaw = atan2(-look.x, -look.z)
+	player.look_yaw = player.chair_yaw
+	player.look_pitch = 0.0
+	player.velocity = Vector3.ZERO
+	for i: int in 200:
+		await get_tree().physics_frame
+		if target.revealed:
+			break
+	for i: int in 6:
+		await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var image := get_viewport().get_texture().get_image()
+	image.save_png("%s/9_reveal.png" % _out_dir)
+	print("saved %s/9_reveal.png (revealed=%s)" % [_out_dir, target.revealed])

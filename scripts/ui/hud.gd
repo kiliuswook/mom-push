@@ -7,14 +7,6 @@ extends CanvasLayer
 ##   3) 수배 단계가 어디까지 올라갔는가
 ##   4) 지금까지 무엇을 배웠는가 (Tab)
 
-const DRIVE_TEXT := {
-	Enums.Drive.STOPPED: "정지 — 정밀 조준 가능",
-	Enums.Drive.SELF: "직접 굴리는 중 — 사격 불가",
-	Enums.Drive.COAST: "관성 롤 — 사격 가능",
-	Enums.Drive.PUSHED: "엄마가 미는 중 — 고속 이동 / 사격 가능",
-	Enums.Drive.CARRIED: "들려서 이동 중 — 사격 불가",
-}
-
 const WANTED_COLORS := {
 	Enums.Wanted.CLEAR: Color(0.65, 0.72, 0.68),
 	Enums.Wanted.ALERT: Color(1.0, 0.88, 0.45),
@@ -32,7 +24,6 @@ var _loop_label: Label
 var _progress_label: Label
 var _known_label: Label
 var _wanted_label: Label
-var _drive_label: Label
 var _hp_bar: ProgressBar
 var _ammo_label: Label
 var _zone_label: Label
@@ -41,7 +32,8 @@ var _damage_flash: ColorRect
 var _escape_bar: ProgressBar
 var _codex: PanelContainer
 var _codex_list: VBoxContainer
-var _help: Label
+var _help: HintPanel
+var _action_hint: ActionHint
 
 var _zone_timer: float = 0.0
 var _font: Font
@@ -101,16 +93,6 @@ func _build() -> void:
 	_root.add_child(right)
 	_wanted_label = _make_label(right, "수배: 이상 없음", 22, WANTED_COLORS[Enums.Wanted.CLEAR])
 	_wanted_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-
-	# 하단 중앙 — 구동 상태
-	_drive_label = Label.new()
-	_drive_label.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	_drive_label.position = Vector2(-320.0, -96.0)
-	_drive_label.custom_minimum_size = Vector2(640.0, 0.0)
-	_drive_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_drive_label.add_theme_font_size_override("font_size", 20)
-	_style_label(_drive_label)
-	_root.add_child(_drive_label)
 
 	# 좌하단 — 체력
 	_hp_bar = ProgressBar.new()
@@ -196,21 +178,15 @@ func _build_codex() -> void:
 	scroll.add_child(_codex_list)
 
 
+## 조작 안내는 문장이 아니라 [키캡] + [그림] 으로 보여준다.
 func _build_help() -> void:
-	_help = Label.new()
+	_help = HintPanel.create(_font)
 	_help.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	_help.position = Vector2(26.0, -300.0)
-	_help.add_theme_font_size_override("font_size", 16)
-	_help.text = """[조작]
- WASD 굴리기 (굴리는 중에는 사격 불가)
- 마우스 시점 / 우클릭 조준 / 좌클릭 사격 / R 재장전
- Shift  엄마! 밀어! (고속 이동 + 사격 가능)
- Ctrl   급정지          Space  휠체어 점프
- P      엄마가 들어올리기 (계단)
- Tab    지금까지 파악한 킬러      G 루프 되감기
- Enter  엄마를 2P 가 직접 조작 (IJKL / 게임패드)"""
-	_style_label(_help)
+	_help.position = Vector2(26.0, -128.0 - HintPanel.ROW_HEIGHT * 8.0)
 	_root.add_child(_help)
+
+	_action_hint = ActionHint.create(player, _font)
+	_root.add_child(_action_hint)
 
 
 func _make_label(parent: Node, text: String, font_size: int, color: Color) -> Label:
@@ -277,12 +253,9 @@ func _process(delta: float) -> void:
 		_wanted_label.text = "전투기 요격까지 %.1f초" % LoopManager.jet_time_left()
 
 
-func _on_drive_changed(drive: Enums.Drive) -> void:
-	_drive_label.text = String(DRIVE_TEXT.get(drive, ""))
-	var blocked := drive == Enums.Drive.SELF or drive == Enums.Drive.CARRIED
-	_drive_label.add_theme_color_override(
-		"font_color", Color(1.0, 0.55, 0.4) if blocked else Color(0.7, 1.0, 0.75)
-	)
+## 구동 상태는 문장이 아니라 ActionHint 의 기호가 말한다. 여기서는 아무것도 하지 않는다.
+func _on_drive_changed(_drive: Enums.Drive) -> void:
+	pass
 
 
 func _on_ammo_changed(in_mag: int, mag_size: int, reloading: bool) -> void:
@@ -333,7 +306,6 @@ func _on_loop_started(index: int) -> void:
 	_wanted_label.text = "수배: 이상 없음"
 	_wanted_label.add_theme_color_override("font_color", WANTED_COLORS[Enums.Wanted.CLEAR])
 	_escape_bar.visible = false
-	_help.visible = index <= 2
 	for child: Node in _toast_box.get_children():
 		child.queue_free()
 

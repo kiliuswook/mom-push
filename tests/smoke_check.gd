@@ -111,6 +111,23 @@ func _run() -> void:
 	mom.reset_for_loop(Town.START_POSITION + Vector3(0.0, 0.0, -1.2))
 	await _wait(3)
 
+	print("\n-- 비언어 안내 --")
+	var boards := get_tree().get_nodes_in_group("target_board")
+	_check("병원에 연습 과녁 3개", boards.size() == 3)
+	var wanted_before := GameState.wanted
+	if boards.size() > 0:
+		var board := boards[0] as TargetBoard
+		board.take_bullet(10.0, board.global_position)
+		await _wait(2)
+		_check("과녁 사격은 수배를 올리지 않음", GameState.wanted == wanted_before)
+	var guide := town.find_child("GuidePath", false, false)
+	_check("바닥 유도 화살표 생성", guide != null)
+	var prompts := 0
+	for node: Node in get_tree().get_nodes_in_group("stair_lift"):
+		prompts += node.get_child_count()
+	_check("계단에 키캡 안내 배치", prompts > 0)
+	_check("시작 시 시간 배율 정상", is_equal_approx(Engine.time_scale, 1.0))
+
 	print("\n-- 한국어 조사 --")
 	_check("받침 있음 -> 이", Josa.subject("청소부") == "청소부가" and Josa.subject("피자 배달분") == "피자 배달분이")
 	_check("받침 없음 -> 가", Josa.subject("운전자") == "운전자가")
